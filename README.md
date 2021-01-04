@@ -29,4 +29,4 @@ Then select the host you want to ssh into and you're done.
 Viktor Penkov [vpenkoff@gmail.com](mailto:vpenkoff@gmail.com)
 
 #### License
-[MIT](https://gitlab.com/vpenkoff/gosho/-/blob/master/LICENSE)
+[MIT](https://github.com/vpenkoff/gosho/blob/master/LICENSE)
