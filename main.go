@@ -23,30 +23,50 @@ func (f FlagBool) Passed() bool {
 	return f.ShortName || f.LongName
 }
 
-var eFlag, cFlag, hFlag FlagBool
+type FlagString struct {
+	ShortName string
+	LongName  string
+}
+
+func (f FlagString) Passed() bool {
+	return len(f.ShortName) > 0 || len(f.LongName) > 0
+}
+
+func (f FlagString) Value() string {
+	if len(f.ShortName) > 0 {
+		return f.ShortName
+	}
+
+	return f.LongName
+}
+
+var eFlag, dFlag, hFlag FlagBool
+var cFlag FlagString
 
 func printDefaults() {
 	fmt.Fprintf(os.Stderr, `
-gosho
--c  --connect  connect to host
--e  --edit     edit ssh config
--h  --help     print this message
-
-`)
+        gosho
+        -d  --destination  connect to host destination
+        -c  --config   specify ssh config file ( default $USER/.ssh/config )
+        -e  --edit     edit ssh config ( default $USER/.ssh/config )
+        -h  --help     print this message
+    `)
 }
 
 func init() {
 	flag.BoolVar(&eFlag.ShortName, "e", false, "edit ssh config")
 	flag.BoolVar(&eFlag.LongName, "edit", false, "edit ssh config")
-	flag.BoolVar(&cFlag.ShortName, "c", false, "connect to host")
-	flag.BoolVar(&cFlag.LongName, "connect", false, "connect to host")
+	flag.StringVar(&cFlag.ShortName, "c", "", "specify config file")
+	flag.StringVar(&cFlag.LongName, "config", "", "specify config file")
+	flag.BoolVar(&dFlag.ShortName, "d", false, "connect to destination host")
+	flag.BoolVar(&dFlag.LongName, "destination", false, "connect to destination host")
 	flag.BoolVar(&hFlag.ShortName, "h", false, "print this message")
 	flag.BoolVar(&hFlag.LongName, "help", false, "print this message")
 	flag.Parse()
 }
 
 func main() {
-	config_path, err := getConfigPath()
+	config_path, err := getConfigPath(&cFlag)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -63,9 +83,9 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if cFlag.Passed() {
+	if dFlag.Passed() {
 		prompt := promptui.Select{
-			Label: "Select Host",
+			Label: "Select Destination Host",
 			Items: hosts,
 		}
 
@@ -78,7 +98,7 @@ func main() {
 
 		fmt.Printf("You choose %q\n", selected_host)
 
-		cmd := exec.Command("ssh", selected_host)
+		cmd := exec.Command("ssh", "-F", config_path, selected_host)
 		cmd.Stdout = os.Stdout
 		cmd.Stdin = os.Stdin
 		cmd.Stderr = os.Stderr
@@ -104,7 +124,16 @@ func main() {
 	printDefaults()
 }
 
-func getConfigPath() (string, error) {
+func getConfigPath(flagString *FlagString) (string, error) {
+	if flagString.Passed() {
+		config := flagString.Value()
+		config_path, err := filepath.Abs(config)
+		if err != nil {
+			return "", err
+		}
+
+		return config_path, nil
+	}
 	config_path, err := filepath.Abs(os.Getenv("HOME") + "/.ssh/config")
 	if err != nil {
 		return "", err
